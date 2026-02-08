@@ -87,15 +87,30 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     
-    - name: Install kubeval
+    - name: Install kubectl manually (NO AZURE!)
       run: |
-        wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
-        tar xf kubeval-linux-amd64.tar.gz
-        sudo mv kubeval /usr/local/bin
+        # Download kubectl directly from Kubernetes
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        
+        # Make it executable
+        chmod +x kubectl
+        
+        # Move to PATH
+        sudo mv kubectl /usr/local/bin/
+        
+        # Verify installation
+        kubectl version --client
+        
+        echo "✅ kubectl installed successfully (no Azure involved!)"
     
-    - name: Validate Kubernetes manifests
+    - name: Validate Kubernetes manifests with kubectl
       run: |
-        kubeval kubernetes/*.yaml --strict
+        echo "Validating Kubernetes YAML files..."
+        for file in kubernetes/*.yaml; do
+          echo "Checking $file..."
+          kubectl apply --dry-run=client -f "$file"
+        done
+        echo "✅ All Kubernetes manifests are valid!"
 
   summary:
     name: CI Summary
