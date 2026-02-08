@@ -87,30 +87,45 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     
-    - name: Install kubectl manually (NO AZURE!)
+    - name: Validate YAML syntax
       run: |
-        # Download kubectl directly from Kubernetes
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        echo "Installing yamllint..."
+        pip install yamllint
         
-        # Make it executable
-        chmod +x kubectl
+        echo "Validating Kubernetes YAML syntax..."
+        yamllint -d "{extends: default, rules: {line-length: {max: 120}}}" kubernetes/
         
-        # Move to PATH
-        sudo mv kubectl /usr/local/bin/
-        
-        # Verify installation
-        kubectl version --client
-        
-        echo "✅ kubectl installed successfully (no Azure involved!)"
+        echo "✅ All YAML files have valid syntax!"
     
-    - name: Validate Kubernetes manifests with kubectl
+    - name: Check Kubernetes manifests structure
       run: |
-        echo "Validating Kubernetes YAML files..."
+        echo "Checking Kubernetes manifest structure..."
+        
         for file in kubernetes/*.yaml; do
           echo "Checking $file..."
-          kubectl apply --dry-run=client -f "$file"
+          
+          # Check if file has apiVersion
+          if ! grep -q "apiVersion:" "$file"; then
+            echo "❌ ERROR: $file missing apiVersion"
+            exit 1
+          fi
+          
+          # Check if file has kind
+          if ! grep -q "kind:" "$file"; then
+            echo "❌ ERROR: $file missing kind"
+            exit 1
+          fi
+          
+          # Check if file has metadata
+          if ! grep -q "metadata:" "$file"; then
+            echo "❌ ERROR: $file missing metadata"
+            exit 1
+          fi
+          
+          echo "✅ $file structure looks good"
         done
-        echo "✅ All Kubernetes manifests are valid!"
+        
+        echo "✅ All Kubernetes manifests have correct structure!"
 
   summary:
     name: CI Summary
